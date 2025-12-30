@@ -13,7 +13,11 @@ def main():
 	db = SpeakerDB(src.config.DB_CONFIG, similarity_threshold=src.config.SIMILARITY_THRESHOLD)
 
 	print("Loading audio...")
-	audio = transcriber.load_audio(src.config.AUDIO_FILE)
+	try:
+		audio = transcriber.load_audio(src.config.AUDIO_FILE)
+	except Exception as e:
+		print(f"Error loading audio: {e}")
+		return
 
 	print("Transcribing audio...")
 	result = transcriber.transcribe(audio)

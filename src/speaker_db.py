@@ -14,27 +14,23 @@ class SpeakerDB:
 	def __init__(self, db_config: dict, similarity_threshold: float = 0.75):
 		self.db_config = db_config
 		self.similarity_threshold = similarity_threshold
-		self.db = None
-		self.cursor = None
+		self.db, self.cursor = self.connect_to_db()
 
-	def connect(self):
-		if self.db is None:
-			self.db = mysql.connector.connect(**self.db_config)
-			self.cursor = self.db.cursor()
+	def connect_to_db(self):
+		self.db = mysql.connector.connect(**self.db_config)
+		self.cursor = self.db.cursor()
 		return self.db, self.cursor
 
 	def resolve_speaker_identity(self, embedding, prompt_for_name: bool = True) -> Tuple[int, str]:
-		"""Return (speaker_id, speaker_name). If unknown, optionally prompt and register."""
-		db, cursor = self.connect()
-
+		"""Return (speaker_id, speaker_name). If unknown, optionally prompt and register new speakers."""
 		emb_np = embedding.detach().cpu().numpy().astype(np.float32)
 
-		cursor.execute("""
+		self.cursor.execute("""
 			SELECT se.speaker_id, s.name, se.embedding
 			FROM speaker_embeddings se
 			JOIN speakers s ON se.speaker_id = s.id
 		""")
-		rows = cursor.fetchall()
+		rows = self.cursor.fetchall()
 
 		best_match = None
 		best_score = -1.0
@@ -53,10 +49,10 @@ class SpeakerDB:
 			return None
 
 		name = input("New speaker detected. Enter speaker name: ").strip()
-		cursor.execute("INSERT INTO speakers (name) VALUES (%s)", (name,))
-		speaker_id = cursor.lastrowid
-		cursor.execute("INSERT INTO speaker_embeddings (speaker_id, embedding) VALUES (%s, %s)", (speaker_id, emb_np.tobytes()))
-		db.commit()
+		self.cursor.execute("INSERT INTO speakers (name) VALUES (%s)", (name,))
+		speaker_id = self.cursor.lastrowid
+		self.cursor.execute("INSERT INTO speaker_embeddings (speaker_id, embedding) VALUES (%s, %s)", (speaker_id, emb_np.tobytes()))
+		self.db.commit()
 		return speaker_id, name
 
 	def close(self):
